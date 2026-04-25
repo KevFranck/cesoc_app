@@ -1,0 +1,1 @@
+"""Elements partages client/serveur."""

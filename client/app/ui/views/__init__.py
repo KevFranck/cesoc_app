@@ -1,0 +1,1 @@
+"""Ecrans de l'application."""
