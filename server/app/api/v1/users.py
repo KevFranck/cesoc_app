@@ -14,11 +14,11 @@ router = APIRouter(prefix="/catalog", tags=["catalog"])
 
 @router.get("/users", response_model=list[UserRead])
 def get_users(db: Session = Depends(get_db)) -> list[UserRead]:
-    """Liste les utilisateurs seedes pour les tests."""
+    """Liste les utilisateurs disponibles."""
     return list_users(db)
 
 
 @router.get("/workstations", response_model=list[WorkstationRead])
 def get_workstations(db: Session = Depends(get_db)) -> list[WorkstationRead]:
-    """Liste les postes seedes pour les tests."""
+    """Liste les postes disponibles."""
     return list_workstations(db)

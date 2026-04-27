@@ -1,10 +1,9 @@
 """Logique metier des sessions."""
 
-from datetime import datetime
-
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
+from server.app.core.time import get_utc_now_naive
 from server.app.models import UserSession
 from server.app.repositories import session_repository
 
@@ -27,7 +26,7 @@ def close_session(db: Session, session_id: int) -> UserSession:
     if user_session.status != "active":
         return get_session_details(db, user_session.id)
 
-    ended_at = datetime.utcnow()
+    ended_at = get_utc_now_naive()
     duration_minutes = max(1, int((ended_at - user_session.started_at).total_seconds() // 60))
 
     user_session.ended_at = ended_at

@@ -10,7 +10,7 @@ class CurrentSession:
     """Session locale du poste."""
 
     session_id: int
-    external_id: str
+    email: str
     user_name: str
     workstation_name: str
     started_at: datetime

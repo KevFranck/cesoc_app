@@ -1,12 +1,16 @@
 """Vue mini de session, visible mais tres discrete."""
 
 from collections.abc import Callable
+from pathlib import Path
 
+from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 
 class MiniSessionView(QWidget):
     """Bandeau de session leger, lisible et discret."""
+
+    LOGO_PATH = Path(__file__).resolve().parent.parent / "assets" / "cesoc_logo.svg"
 
     def __init__(
         self,
@@ -35,31 +39,26 @@ class MiniSessionView(QWidget):
         self.setStyleSheet(
             """
             QWidget {
-                background: #eef6f2;
-                color: #17322d;
+                background: #0f1923;
+                color: #f0f0f0;
             }
             QFrame#MiniShell {
-                background: #fffdf8;
-                border: 1px solid #d7e0d9;
-                border-radius: 16px;
-            }
-            QLabel#MiniTitle {
-                color: #173d35;
-                font-size: 11px;
-                font-weight: 900;
+                background: #1e2a38;
+                border: 1px solid #2dad75;
+                border-radius: 14px;
             }
             QLabel#MiniIdentity {
-                color: #415751;
+                color: #f0f0f0;
                 font-size: 11px;
                 font-weight: 800;
             }
             QLabel#MiniQuota {
-                color: #4a615c;
+                color: #36bde7;
                 font-size: 11px;
                 font-weight: 800;
             }
             QLabel#MiniCountdown {
-                color: #173d35;
+                color: #ffffff;
                 font-size: 20px;
                 font-weight: 900;
             }
@@ -67,15 +66,15 @@ class MiniSessionView(QWidget):
                 min-height: 28px;
                 padding: 4px 10px;
                 border: none;
-                border-radius: 10px;
+                border-radius: 6px;
                 background: #d92051;
                 color: #ffffff;
                 font-weight: 800;
             }
             QPushButton#GhostButton {
-                background: #f3fbf7;
-                color: #173d35;
-                border: 1px solid #9edabc;
+                background: transparent;
+                color: #2dad75;
+                border: 1px solid #2dad75;
             }
             """
         )
@@ -83,8 +82,8 @@ class MiniSessionView(QWidget):
         shell = QFrame()
         shell.setObjectName("MiniShell")
 
-        title = QLabel("Session active")
-        title.setObjectName("MiniTitle")
+        logo_widget = QSvgWidget(str(self.LOGO_PATH))
+        logo_widget.setFixedSize(94, 28)
         self.identity_value = QLabel("-")
         self.identity_value.setObjectName("MiniIdentity")
         self.quota_value = QLabel("Impression indisponible")
@@ -100,8 +99,8 @@ class MiniSessionView(QWidget):
 
         info_layout = QVBoxLayout()
         info_layout.setContentsMargins(0, 0, 0, 0)
-        info_layout.setSpacing(1)
-        info_layout.addWidget(title)
+        info_layout.setSpacing(2)
+        info_layout.addWidget(logo_widget)
         info_layout.addWidget(self.identity_value)
         info_layout.addWidget(self.quota_value)
 

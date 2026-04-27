@@ -18,13 +18,14 @@ class WorkspaceService:
 
     def ensure_session_workspace(
         self,
-        external_id: str,
+        email: str,
         workstation_name: str,
         started_at: datetime,
     ) -> Path:
         """Cree le dossier de travail de la session si besoin."""
         safe_timestamp = started_at.strftime("%Y%m%d-%H%M%S")
-        session_dir = self.workspace_root / external_id / f"{workstation_name}-{safe_timestamp}"
+        safe_email = email.replace("@", "_at_").replace(".", "_")
+        session_dir = self.workspace_root / safe_email / f"{workstation_name}-{safe_timestamp}"
         session_dir.mkdir(parents=True, exist_ok=True)
 
         readme = session_dir / "LISEZ-MOI.txt"

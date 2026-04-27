@@ -42,10 +42,10 @@ class DashboardView(QWidget):
         self._on_open_pdf = on_open_pdf
         self._build_ui()
 
-    def set_session_header(self, user_name: str, external_id: str, workstation_name: str) -> None:
+    def set_session_header(self, user_name: str, email: str, workstation_name: str) -> None:
         """Met a jour le resume de session."""
         self.user_value.setText(user_name)
-        self.external_id_value.setText(external_id)
+        self.email_value.setText(email)
         self.workstation_value.setText(workstation_name)
 
     def set_timer(self, elapsed_minutes: int, remaining_minutes: int, formatted_remaining: str) -> None:
@@ -94,7 +94,7 @@ class DashboardView(QWidget):
         for row, session in enumerate(sessions):
             user = session["user"]
             workstation = session["workstation"]
-            self.sessions_table.setItem(row, 0, QTableWidgetItem(str(user["external_id"])))
+            self.sessions_table.setItem(row, 0, QTableWidgetItem(str(user["email"])))
             self.sessions_table.setItem(
                 row, 1, QTableWidgetItem(f"{user['first_name']} {user['last_name']}")
             )
@@ -135,7 +135,7 @@ class DashboardView(QWidget):
 
     def _build_ui(self) -> None:
         self.user_value = QLabel("-")
-        self.external_id_value = QLabel("-")
+        self.email_value = QLabel("-")
         self.workstation_value = QLabel("-")
         self.elapsed_value = QLabel("0 min")
         self.remaining_value = QLabel("0 min")
@@ -151,8 +151,8 @@ class DashboardView(QWidget):
         session_layout = QGridLayout()
         session_layout.addWidget(QLabel("Nom"), 0, 0)
         session_layout.addWidget(self.user_value, 0, 1)
-        session_layout.addWidget(QLabel("Identifiant"), 1, 0)
-        session_layout.addWidget(self.external_id_value, 1, 1)
+        session_layout.addWidget(QLabel("Email"), 1, 0)
+        session_layout.addWidget(self.email_value, 1, 1)
         session_layout.addWidget(QLabel("Poste"), 2, 0)
         session_layout.addWidget(self.workstation_value, 2, 1)
         session_layout.addWidget(QLabel("Temps ecoule"), 3, 0)
@@ -214,7 +214,7 @@ class DashboardView(QWidget):
 
         self.sessions_table = QTableWidget(0, 4)
         self.sessions_table.setHorizontalHeaderLabels(
-            ["Identifiant", "Utilisateur", "Poste", "Debut"]
+            ["Email", "Utilisateur", "Poste", "Debut"]
         )
 
         refresh_button = QPushButton("Actualiser")

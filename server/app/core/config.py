@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./cesoc_mvp.db"
     default_session_limit_minutes: int = 60
     default_daily_print_quota: int = 10
+    app_timezone: str = "America/New_York"
     backend_cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     @property

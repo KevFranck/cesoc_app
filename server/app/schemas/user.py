@@ -9,7 +9,7 @@ class UserRead(BaseModel):
     """Representation publique d'un utilisateur."""
 
     id: int
-    external_id: str
+    email: str
     first_name: str
     last_name: str
     role: str

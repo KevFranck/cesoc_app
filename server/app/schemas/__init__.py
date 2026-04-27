@@ -1,7 +1,17 @@
 """Schemas Pydantic."""
 
-from server.app.schemas.admin import AdminOverviewResponse, PrintJobRead
-from server.app.schemas.auth import LoginRequest, LoginResponse
+from server.app.schemas.admin import (
+    AdminClientRead,
+    AdminOverviewResponse,
+    PasswordResetResponse,
+    PrintCreditGrantRequest,
+    PrintCreditGrantResponse,
+    PrintJobRead,
+    WorkstationCreateRequest,
+    WorkstationUpdateRequest,
+)
+from server.app.schemas.auth import LoginRequest, LoginResponse, RegisterRequest, RegisterResponse
+from server.app.schemas.auth import PasswordChangeRequest, PasswordChangeResponse
 from server.app.schemas.print_job import (
     ObservedPrintRequest,
     PrintQuotaResponse,
@@ -15,9 +25,17 @@ from server.app.schemas.workstation import WorkstationRead
 
 __all__ = [
     "AdminOverviewResponse",
+    "AdminClientRead",
     "DailyReportResponse",
     "LoginRequest",
     "LoginResponse",
+    "PasswordChangeRequest",
+    "PasswordChangeResponse",
+    "PasswordResetResponse",
+    "PrintCreditGrantRequest",
+    "PrintCreditGrantResponse",
+    "RegisterRequest",
+    "RegisterResponse",
     "ObservedPrintRequest",
     "PrintQuotaResponse",
     "PrintJobRead",
@@ -26,5 +44,7 @@ __all__ = [
     "SessionCloseResponse",
     "SessionResponse",
     "UserRead",
+    "WorkstationCreateRequest",
     "WorkstationRead",
+    "WorkstationUpdateRequest",
 ]

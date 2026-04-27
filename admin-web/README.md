@@ -24,6 +24,10 @@ Copier `.env.example` vers `.env` si tu veux changer l'URL de l'API :
 VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1
 ```
 
-## Compte de demonstration
+## Mode test
 
-- `ADM-001`
+Pour l'instant, l'interface admin s'ouvre directement sans ecran de connexion.
+
+Elle consomme simplement l'endpoint :
+
+- `/api/v1/admin/overview`

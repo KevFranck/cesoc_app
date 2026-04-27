@@ -24,7 +24,7 @@ class ClientSettings(BaseSettings):
     client_word_executable: str = "winword.exe"
     client_workspace_root: str = str(Path.home() / "Documents" / "CESOC Sessions")
     client_print_monitor_enabled: bool = True
-    client_print_monitor_interval_ms: int = 1500
+    client_print_monitor_interval_ms: int = 250
 
     @property
     def session_warning_thresholds(self) -> list[int]:

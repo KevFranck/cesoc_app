@@ -8,6 +8,10 @@ from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import (
     QMenu,
     QApplication,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QLineEdit,
     QMainWindow,
     QMessageBox,
     QStackedWidget,
@@ -54,7 +58,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(self.settings.client_app_name)
 
         self.stack = QStackedWidget()
-        self.login_view = LoginView(self.handle_login)
+        self.login_view = LoginView(self.handle_login, self.handle_register)
         self.mini_view = MiniSessionView(
             on_expand=self.show_compact_panel,
             on_logout=self.handle_logout,
@@ -62,6 +66,7 @@ class MainWindow(QMainWindow):
         self.compact_view = CompactSessionView(
             on_refresh=self.load_dashboard_data,
             on_hide=self.show_mini_panel,
+            on_change_password=self.handle_change_password,
             on_logout=self.handle_logout,
             on_open_browser=self.handle_open_browser,
             on_open_word=self.handle_open_word,
@@ -91,11 +96,11 @@ class MainWindow(QMainWindow):
         self.login_view.clear_feedback()
         self.login_view.focus_identifier()
 
-    def handle_login(self, external_id: str, workstation_name: str) -> None:
+    def handle_login(self, email: str, password: str, workstation_name: str) -> None:
         """Connecte l'utilisateur."""
         self.login_view.set_busy(True)
         try:
-            payload = self.api_client.login(external_id, workstation_name)
+            payload = self.api_client.login(email, password, workstation_name)
         except RuntimeError as exc:
             self.login_view.set_feedback(str(exc), level="danger")
             self.login_view.set_busy(False)
@@ -117,13 +122,13 @@ class MainWindow(QMainWindow):
 
         started_at = datetime.fromisoformat(session["started_at"])
         workspace_path = self.workspace_service.ensure_session_workspace(
-            external_id=user["external_id"],
+            email=user["email"],
             workstation_name=session["workstation"]["name"],
             started_at=started_at,
         )
         self.current_session = CurrentSession(
             session_id=session["id"],
-            external_id=user["external_id"],
+            email=user["email"],
             user_name=f"{user['first_name']} {user['last_name']}",
             workstation_name=session["workstation"]["name"],
             started_at=started_at,
@@ -132,7 +137,7 @@ class MainWindow(QMainWindow):
 
         self.compact_view.set_session_header(
             self.current_session.user_name,
-            self.current_session.external_id,
+            self.current_session.email,
             self.current_session.workstation_name,
         )
         self.mini_view.set_session_header(
@@ -159,13 +164,32 @@ class MainWindow(QMainWindow):
         self.raise_()
         self.activateWindow()
 
+    def handle_register(self, email: str, first_name: str, last_name: str, password: str) -> None:
+        """Cree un nouveau compte client."""
+        self.login_view.set_busy(True)
+        try:
+            self.api_client.register(email, first_name, last_name, password)
+        except RuntimeError as exc:
+            self.login_view.set_feedback(str(exc), level="danger")
+            return
+        finally:
+            self.login_view.set_busy(False)
+
+        self.login_view.set_feedback(
+            "Compte cree avec succes. Vous pouvez maintenant vous connecter.",
+            level="success",
+        )
+        self.login_view.show_login_mode()
+        self.login_view.password_input.clear()
+        self.login_view.focus_identifier()
+
     def load_dashboard_data(self) -> None:
         """Recharge les donnees utiles au panneau utilisateur."""
         if not self.current_session:
             return
 
         try:
-            quota = self.api_client.get_print_quota(self.current_session.external_id)
+            quota = self.api_client.get_print_quota(self.current_session.email)
         except RuntimeError as exc:
             self._show_error(str(exc))
             return
@@ -209,6 +233,59 @@ class MainWindow(QMainWindow):
         except RuntimeError as exc:
             self._show_error(str(exc))
 
+    def handle_change_password(self) -> None:
+        """Permet a l'utilisateur connecte de modifier son mot de passe."""
+        if not self.current_session:
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Modifier le mot de passe")
+        dialog.setModal(True)
+        layout = QFormLayout(dialog)
+
+        current_password_input = QLineEdit()
+        current_password_input.setEchoMode(QLineEdit.Password)
+        new_password_input = QLineEdit()
+        new_password_input.setEchoMode(QLineEdit.Password)
+        confirm_password_input = QLineEdit()
+        confirm_password_input.setEchoMode(QLineEdit.Password)
+
+        layout.addRow("Mot de passe actuel", current_password_input)
+        layout.addRow("Nouveau mot de passe", new_password_input)
+        layout.addRow("Confirmer", confirm_password_input)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addRow(buttons)
+
+        if dialog.exec() != QDialog.Accepted:
+            return
+
+        current_password = current_password_input.text()
+        new_password = new_password_input.text()
+        confirm_password = confirm_password_input.text()
+
+        if not current_password or not new_password:
+            self._show_error("Veuillez renseigner le mot de passe actuel et le nouveau mot de passe.")
+            return
+        if new_password != confirm_password:
+            self._show_error("La confirmation du nouveau mot de passe ne correspond pas.")
+            return
+
+        try:
+            payload = self.api_client.change_password(
+                self.current_session.email,
+                current_password,
+                new_password,
+            )
+        except RuntimeError as exc:
+            self._show_error(str(exc))
+            return
+
+        self.compact_view.set_status_message(payload.get("message", "Mot de passe modifie."), level="success")
+        self.compact_view.show_info("Mot de passe", payload.get("message", "Mot de passe modifie."))
+
     def handle_logout(self) -> None:
         """Ferme la session courante."""
         if not self.current_session:
@@ -240,6 +317,8 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentWidget(self.login_view)
         self._enter_login_mode()
         self.login_view.clear_feedback()
+        self.login_view.show_login_mode()
+        self.login_view.password_input.clear()
         self.login_view.focus_identifier()
 
     def _update_timer_display(
@@ -304,6 +383,8 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentWidget(self.login_view)
         self._enter_login_mode()
         self.login_view.clear_feedback()
+        self.login_view.show_login_mode()
+        self.login_view.password_input.clear()
         self.login_view.focus_identifier()
 
     def _show_error(self, message: str) -> None:
@@ -316,18 +397,24 @@ class MainWindow(QMainWindow):
 
         try:
             result = self.api_client.observe_print_job(
-                external_id=self.current_session.external_id,
+                email=self.current_session.email,
                 workstation_name=self.current_session.workstation_name,
                 pages=int(job.get("pages", 1)),
                 printer_name=job.get("printer_name"),
                 document_name=job.get("document_name"),
                 spool_job_id=job.get("spool_job_id"),
+                total_pages_seen=job.get("pages_total_seen"),
             )
         except RuntimeError as exc:
             self.compact_view.set_status_message(str(exc), level="danger")
             return
 
         if result.get("allowed"):
+            if job.get("paused_once"):
+                self.print_monitor.resume_job(
+                    str(job.get("printer_name", "")),
+                    int(job.get("spool_job_id", 0)),
+                )
             self.compact_view.set_status_message(
                 (
                     f"Impression autorisee sur {job.get('printer_name', 'imprimante inconnue')}. "
@@ -343,12 +430,12 @@ class MainWindow(QMainWindow):
         cancelled = self.print_monitor.cancel_job(printer_name, spool_job_id)
         status_message = (
             (
-                "Impression bloquee : votre quota quotidien est atteint. "
+                "Impression bloquee : votre quota quotidien de 10 pages est atteint. "
                 "Vous ne pouvez plus imprimer aujourd'hui sur ce poste."
             )
             if cancelled
             else (
-                "Votre quota quotidien est atteint. L'impression a ete detectee mais le blocage automatique a echoue. "
+                "Votre quota quotidien de 10 pages est atteint. L'impression a ete detectee mais le blocage automatique a echoue. "
                 "Veuillez demander de l'aide au personnel."
             )
         )

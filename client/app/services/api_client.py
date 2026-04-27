@@ -1,5 +1,6 @@
 """Client HTTP pour le desktop CESOC."""
 
+import json
 from typing import Any
 
 import httpx
@@ -21,12 +22,39 @@ class ApiClient:
         response = self._request("GET", "/catalog/workstations")
         return response.json()
 
-    def login(self, external_id: str, workstation_name: str) -> dict[str, Any]:
+    def login(self, email: str, password: str, workstation_name: str) -> dict[str, Any]:
         """Ouvre une session utilisateur."""
         response = self._request(
             "POST",
             "/auth/login",
-            json={"external_id": external_id, "workstation_name": workstation_name},
+            json={"email": email, "password": password, "workstation_name": workstation_name},
+        )
+        return response.json()
+
+    def register(self, email: str, first_name: str, last_name: str, password: str) -> dict[str, Any]:
+        """Inscrit un utilisateur client."""
+        response = self._request(
+            "POST",
+            "/auth/register",
+            json={
+                "email": email,
+                "first_name": first_name,
+                "last_name": last_name,
+                "password": password,
+            },
+        )
+        return response.json()
+
+    def change_password(self, email: str, current_password: str, new_password: str) -> dict[str, Any]:
+        """Modifie le mot de passe d'un utilisateur."""
+        response = self._request(
+            "POST",
+            "/auth/change-password",
+            json={
+                "email": email,
+                "current_password": current_password,
+                "new_password": new_password,
+            },
         )
         return response.json()
 
@@ -40,48 +68,50 @@ class ApiClient:
         response = self._request("POST", f"/sessions/{session_id}/close")
         return response.json()
 
-    def submit_print(self, external_id: str, workstation_name: str, pages: int) -> dict[str, Any]:
+    def submit_print(self, email: str, workstation_name: str, pages: int) -> dict[str, Any]:
         """Soumet une demande d'impression."""
         response = self._request(
             "POST",
             "/prints",
             json={
-                "external_id": external_id,
+                "email": email,
                 "workstation_name": workstation_name,
                 "pages": pages,
             },
         )
         return response.json()
 
-    def get_print_quota(self, external_id: str) -> dict[str, Any]:
+    def get_print_quota(self, email: str) -> dict[str, Any]:
         """Retourne l'etat du quota d'impression de l'usager."""
         response = self._request(
             "GET",
             "/prints/quota",
-            params={"external_id": external_id},
+            params={"email": email},
         )
         return response.json()
 
     def observe_print_job(
         self,
-        external_id: str,
+        email: str,
         workstation_name: str,
         pages: int,
         printer_name: str | None = None,
         document_name: str | None = None,
         spool_job_id: int | None = None,
+        total_pages_seen: int | None = None,
     ) -> dict[str, Any]:
         """Journalise un job detecte par le spooler Windows."""
         response = self._request(
             "POST",
             "/prints/observe",
             json={
-                "external_id": external_id,
+                "email": email,
                 "workstation_name": workstation_name,
                 "pages": pages,
                 "printer_name": printer_name,
                 "document_name": document_name,
                 "spool_job_id": spool_job_id,
+                "total_pages_seen": total_pages_seen,
             },
         )
         return response.json()
@@ -100,9 +130,29 @@ class ApiClient:
                 response.raise_for_status()
                 return response
         except httpx.HTTPStatusError as exc:
-            detail = exc.response.text
-            raise RuntimeError(f"Erreur API {exc.response.status_code}: {detail}") from exc
+            raise RuntimeError(self._extract_error_message(exc.response)) from exc
         except httpx.HTTPError as exc:
             raise RuntimeError(
                 "Impossible de joindre l'API CESOC. Verifie que le serveur tourne."
             ) from exc
+
+    def _extract_error_message(self, response: httpx.Response) -> str:
+        """Retourne un message d'erreur presentable pour l'interface."""
+        try:
+            payload = response.json()
+        except (json.JSONDecodeError, ValueError):
+            text = response.text.strip()
+            return text or f"Erreur API {response.status_code}."
+
+        detail = payload.get("detail")
+        if isinstance(detail, str) and detail.strip():
+            return detail.strip()
+
+        if isinstance(detail, list) and detail:
+            first_error = detail[0]
+            if isinstance(first_error, dict):
+                msg = first_error.get("msg")
+                if isinstance(msg, str) and msg.strip():
+                    return msg.strip()
+
+        return f"Erreur API {response.status_code}."

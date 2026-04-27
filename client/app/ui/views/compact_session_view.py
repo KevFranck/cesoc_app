@@ -1,7 +1,9 @@
 """Vue compacte de session pour usage sur bureau Windows normal."""
 
 from collections.abc import Callable
+from pathlib import Path
 
+from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -18,10 +20,13 @@ from PySide6.QtWidgets import (
 class CompactSessionView(QWidget):
     """Panneau flottant recentre sur les besoins utiles pendant la session."""
 
+    LOGO_PATH = Path(__file__).resolve().parent.parent / "assets" / "cesoc_logo.svg"
+
     def __init__(
         self,
         on_refresh: Callable[[], None],
         on_hide: Callable[[], None],
+        on_change_password: Callable[[], None],
         on_logout: Callable[[], None],
         on_open_browser: Callable[[], None],
         on_open_word: Callable[[], None],
@@ -31,15 +36,16 @@ class CompactSessionView(QWidget):
         super().__init__(parent)
         self._on_refresh = on_refresh
         self._on_hide = on_hide
+        self._on_change_password = on_change_password
         self._on_logout = on_logout
         self._on_open_browser = on_open_browser
         self._on_open_word = on_open_word
         self._on_open_workspace = on_open_workspace
         self._build_ui()
 
-    def set_session_header(self, user_name: str, external_id: str, workstation_name: str) -> None:
+    def set_session_header(self, user_name: str, email: str, workstation_name: str) -> None:
         self.user_value.setText(user_name)
-        self.identity_value.setText(f"{external_id} - {workstation_name}")
+        self.identity_value.setText(f"{email} - {workstation_name}")
         self.workstation_value.setText(workstation_name)
 
     def set_timer(self, elapsed_minutes: int, remaining_minutes: int, formatted_remaining: str) -> None:
@@ -55,34 +61,34 @@ class CompactSessionView(QWidget):
         safe_used = max(pages_used_today, 0)
         safe_remaining = max(remaining_quota, 0)
         self.quota_value.setText(f"{safe_remaining} page(s) restante(s)")
-        self.quota_detail_value.setText(f"{safe_used} / {safe_quota} utilisees aujourd'hui")
+        self.quota_detail_value.setText(f"{safe_used} / {safe_quota} page(s) utilisee(s) aujourd'hui")
         self.quota_progress.setMaximum(max(safe_quota, 1))
         self.quota_progress.setValue(min(safe_used, max(safe_quota, 1)))
         if safe_quota > 0 and safe_remaining == 0:
             self.quota_state_value.setText("Quota atteint")
-            self.quota_state_value.setStyleSheet("color: #8a2138; font-weight: 800;")
-            self.quota_progress.setStyleSheet(self._progress_style("#c94b61"))
+            self.quota_state_value.setStyleSheet("color: #ffffff; background: #d92051; border-radius: 10px; padding: 4px 10px; font-weight: 900;")
+            self.quota_progress.setStyleSheet(self._progress_style("#d92051"))
         elif safe_quota > 0 and safe_remaining <= 2:
             self.quota_state_value.setText("Bientot atteint")
-            self.quota_state_value.setStyleSheet("color: #8b5a00; font-weight: 800;")
-            self.quota_progress.setStyleSheet(self._progress_style("#d49a2a"))
+            self.quota_state_value.setStyleSheet("color: #1a1a2e; background: #f7b700; border-radius: 10px; padding: 4px 10px; font-weight: 900;")
+            self.quota_progress.setStyleSheet(self._progress_style("#f7b700"))
         else:
             self.quota_state_value.setText("Disponible")
-            self.quota_state_value.setStyleSheet("color: #1c6441; font-weight: 800;")
+            self.quota_state_value.setStyleSheet("color: #ffffff; background: #2dad75; border-radius: 10px; padding: 4px 10px; font-weight: 900;")
             self.quota_progress.setStyleSheet(self._progress_style("#2dad75"))
 
     def set_status_message(self, message: str, level: str = "neutral") -> None:
         colors = {
-            "neutral": ("#eef3f0", "#28413b"),
-            "warning": ("#fff3d9", "#8b5a00"),
-            "danger": ("#fde4e1", "#8a2138"),
-            "success": ("#e4f5ea", "#1c6441"),
+            "neutral": ("#1e2a38", "#f0f0f0"),
+            "warning": ("#f7b700", "#1a1a2e"),
+            "danger": ("#d92051", "#ffffff"),
+            "success": ("#2dad75", "#ffffff"),
         }
         background, foreground = colors.get(level, colors["neutral"])
         self.status_banner.setText(message)
         self.status_banner.setStyleSheet(
-            f"background: {background}; color: {foreground}; border: 1px solid transparent; "
-            "border-radius: 12px; padding: 10px 12px; font-weight: 700;"
+            f"background: {background}; color: {foreground}; border-radius: 8px; "
+            "padding: 10px 12px; font-weight: 800;"
         )
         self.status_banner.show()
 
@@ -106,71 +112,76 @@ class CompactSessionView(QWidget):
         self.setStyleSheet(
             """
             QWidget {
-                background: #eef6f2;
-                color: #17322d;
+                background: #0f1923;
+                color: #f0f0f0;
             }
             QFrame#CompactShell {
-                background: #fffdf8;
-                border: 1px solid #d7e0d9;
-                border-radius: 22px;
-            }
-            QFrame#HeaderStrip {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #0f4f4f, stop:0.52 #2dad75, stop:0.78 #36bde7, stop:1 #f7b700);
+                background: #1a1a2e;
+                border: 1px solid #2dad75;
                 border-radius: 18px;
             }
+            QFrame#TopCard {
+                background: #1e2a38;
+                border: 1px solid rgba(54, 189, 231, 0.28);
+                border-radius: 16px;
+            }
+            QFrame#LogoCard {
+                background: rgba(255, 255, 255, 0.04);
+                border: 1px solid rgba(54, 189, 231, 0.35);
+                border-radius: 16px;
+            }
             QFrame#Card {
-                background: #f7faf7;
-                border: 1px solid #d9e0d9;
+                background: #1e2a38;
+                border: 1px solid rgba(45, 173, 117, 0.28);
                 border-radius: 16px;
             }
             QLabel#PanelTitle {
-                color: #ffffff;
-                font-size: 20px;
+                color: #36bde7;
+                font-size: 22px;
                 font-weight: 900;
             }
             QLabel#PanelSubtitle {
-                color: #ffffff;
+                color: #f0f0f0;
                 font-size: 12px;
                 font-weight: 700;
             }
             QLabel#UserName {
-                color: #173d35;
-                font-size: 17px;
-                font-weight: 800;
+                color: #ffffff;
+                font-size: 18px;
+                font-weight: 900;
             }
             QLabel#Identity {
-                color: #4b625c;
+                color: #36bde7;
                 font-size: 12px;
-                font-weight: 700;
+                font-weight: 800;
             }
             QLabel#SectionTitle {
-                color: #183a34;
+                color: #36bde7;
                 font-size: 14px;
                 font-weight: 900;
             }
             QLabel#SubtleText {
-                color: #5f746f;
+                color: #f0f0f0;
                 font-size: 12px;
                 font-weight: 700;
             }
             QLabel#Countdown {
-                color: #173d35;
-                font-size: 32px;
+                color: #ffffff;
+                font-size: 34px;
                 font-weight: 900;
             }
             QLabel#StatValue {
-                color: #173d35;
-                font-size: 17px;
-                font-weight: 800;
+                color: #ffffff;
+                font-size: 18px;
+                font-weight: 900;
             }
             QLabel#FieldLabel {
-                color: #5f746f;
+                color: #36bde7;
                 font-size: 12px;
-                font-weight: 700;
+                font-weight: 800;
             }
             QLabel#FieldValue {
-                color: #173d35;
+                color: #f0f0f0;
                 font-size: 13px;
                 font-weight: 700;
             }
@@ -178,15 +189,15 @@ class CompactSessionView(QWidget):
                 min-height: 38px;
                 padding: 8px 12px;
                 border: none;
-                border-radius: 12px;
+                border-radius: 6px;
                 background: #2dad75;
                 color: #ffffff;
                 font-weight: 800;
             }
             QPushButton#GhostButton {
-                background: #f3f7f4;
-                color: #173d35;
-                border: 1px solid #c8d3cc;
+                background: transparent;
+                color: #2dad75;
+                border: 1px solid #2dad75;
             }
             QPushButton#DangerButton {
                 background: #d92051;
@@ -202,8 +213,19 @@ class CompactSessionView(QWidget):
         self.status_banner.hide()
         self.status_banner.setWordWrap(True)
 
-        header_strip = QFrame()
-        header_strip.setObjectName("HeaderStrip")
+        top_card = QFrame()
+        top_card.setObjectName("TopCard")
+
+        logo_card = QFrame()
+        logo_card.setObjectName("LogoCard")
+        logo_widget = QSvgWidget(str(self.LOGO_PATH))
+        logo_widget.setFixedSize(144, 40)
+        logo_layout = QHBoxLayout()
+        logo_layout.setContentsMargins(12, 10, 12, 10)
+        logo_layout.addWidget(logo_widget)
+        logo_layout.addStretch(1)
+        logo_card.setLayout(logo_layout)
+
         title = QLabel("Session CESOC")
         title.setObjectName("PanelTitle")
         subtitle = QLabel("Votre session reste suivie pendant que vous utilisez le poste.")
@@ -216,6 +238,9 @@ class CompactSessionView(QWidget):
         hide_button = QPushButton("Masquer")
         hide_button.setObjectName("GhostButton")
         hide_button.clicked.connect(self._on_hide)
+        password_button = QPushButton("Mot de passe")
+        password_button.setObjectName("GhostButton")
+        password_button.clicked.connect(self._on_change_password)
         logout_button = QPushButton("Terminer")
         logout_button.setObjectName("DangerButton")
         logout_button.clicked.connect(self._on_logout)
@@ -224,16 +249,18 @@ class CompactSessionView(QWidget):
         header_actions.setSpacing(8)
         header_actions.addWidget(refresh_button)
         header_actions.addWidget(hide_button)
+        header_actions.addWidget(password_button)
         header_actions.addStretch(1)
         header_actions.addWidget(logout_button)
 
-        header_layout = QVBoxLayout()
-        header_layout.setContentsMargins(16, 14, 16, 14)
-        header_layout.setSpacing(5)
-        header_layout.addWidget(title)
-        header_layout.addWidget(subtitle)
-        header_layout.addLayout(header_actions)
-        header_strip.setLayout(header_layout)
+        top_layout = QVBoxLayout()
+        top_layout.setContentsMargins(16, 14, 16, 14)
+        top_layout.setSpacing(10)
+        top_layout.addWidget(logo_card)
+        top_layout.addWidget(title)
+        top_layout.addWidget(subtitle)
+        top_layout.addLayout(header_actions)
+        top_card.setLayout(top_layout)
 
         self.user_value = QLabel("-")
         self.user_value.setObjectName("UserName")
@@ -265,8 +292,8 @@ class CompactSessionView(QWidget):
 
         identity_card = self._build_card()
         identity_layout = QVBoxLayout()
-        identity_layout.setContentsMargins(16, 12, 16, 12)
-        identity_layout.setSpacing(2)
+        identity_layout.setContentsMargins(16, 14, 16, 14)
+        identity_layout.setSpacing(3)
         identity_layout.addWidget(self.user_value)
         identity_layout.addWidget(self.identity_value)
         identity_card.setLayout(identity_layout)
@@ -286,7 +313,7 @@ class CompactSessionView(QWidget):
         quota_card = self._build_card()
         quota_layout = QVBoxLayout()
         quota_layout.setContentsMargins(16, 14, 16, 14)
-        quota_layout.setSpacing(5)
+        quota_layout.setSpacing(6)
         quota_title = QLabel("Quota d'impression")
         quota_title.setObjectName("SectionTitle")
         quota_layout.addWidget(quota_title)
@@ -300,7 +327,7 @@ class CompactSessionView(QWidget):
         info_layout = QGridLayout()
         info_layout.setContentsMargins(16, 14, 16, 14)
         info_layout.setHorizontalSpacing(12)
-        info_layout.setVerticalSpacing(6)
+        info_layout.setVerticalSpacing(8)
         info_title = QLabel("Informations")
         info_title.setObjectName("SectionTitle")
         info_layout.addWidget(info_title, 0, 0, 1, 2)
@@ -313,7 +340,7 @@ class CompactSessionView(QWidget):
         layout = QVBoxLayout()
         layout.setContentsMargins(14, 14, 14, 14)
         layout.setSpacing(10)
-        layout.addWidget(header_strip)
+        layout.addWidget(top_card)
         layout.addWidget(self.status_banner)
         layout.addWidget(identity_card)
         layout.addWidget(countdown_card)
@@ -341,8 +368,8 @@ class CompactSessionView(QWidget):
             "QProgressBar {"
             "min-height: 10px;"
             "max-height: 10px;"
-            "background: #e5ebe7;"
-            "border: none;"
+            "background: #0f1923;"
+            "border: 1px solid #2f455c;"
             "border-radius: 5px;"
             "}"
             f"QProgressBar::chunk {{ background: {chunk_color}; border-radius: 5px; }}"

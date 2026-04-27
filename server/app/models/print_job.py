@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from server.app.core.time import get_local_now
 from server.app.db.base import Base
 
 
@@ -19,7 +20,10 @@ class PrintJob(Base):
     pages: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(20), default="allowed")
     blocked_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    printed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    printer_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    document_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    spool_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    printed_at: Mapped[datetime] = mapped_column(DateTime, default=get_local_now, index=True)
 
     user = relationship("User", back_populates="print_jobs")
     workstation = relationship("Workstation", back_populates="print_jobs")
