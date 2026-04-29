@@ -26,6 +26,7 @@ from client.app.services.session_store import CurrentSession
 from client.app.services.workspace_service import WorkspaceService
 from client.app.printers.windows_print_monitor import WindowsPrintMonitor
 from client.app.session_tracker.timer import SessionTimer
+from client.app.ui.resources import get_app_icon
 from client.app.ui.views.compact_session_view import CompactSessionView
 from client.app.ui.views.login_view import LoginView
 from client.app.ui.views.mini_session_view import MiniSessionView
@@ -56,6 +57,9 @@ class MainWindow(QMainWindow):
         self._tray_message_shown = False
 
         self.setWindowTitle(self.settings.client_app_name)
+        self.app_icon = get_app_icon()
+        if not self.app_icon.isNull():
+            self.setWindowIcon(self.app_icon)
 
         self.stack = QStackedWidget()
         self.login_view = LoginView(self.handle_login, self.handle_register)
@@ -65,7 +69,7 @@ class MainWindow(QMainWindow):
         )
         self.compact_view = CompactSessionView(
             on_refresh=self.load_dashboard_data,
-            on_hide=self.show_mini_panel,
+            on_hide=self.minimize_to_taskbar,
             on_change_password=self.handle_change_password,
             on_logout=self.handle_logout,
             on_open_browser=self.handle_open_browser,
@@ -449,18 +453,32 @@ class MainWindow(QMainWindow):
             self.compact_view.set_status_message(message, level="warning")
 
     def _enter_login_mode(self) -> None:
-        self.setWindowFlag(Qt.WindowStaysOnTopHint, False)
-        self._restore_window_geometry("login_geometry", (1120, 700), (980, 620))
+        self._tray_icon.hide()
+        self.setWindowFlag(Qt.WindowStaysOnTopHint, self.settings.client_login_kiosk_enabled)
+        self.setWindowFlag(Qt.FramelessWindowHint, self.settings.client_login_kiosk_enabled)
+        self.setMinimumSize(980, 620)
         self.setMaximumSize(16777215, 16777215)
-        self.show()
+        if self.settings.client_login_kiosk_enabled:
+            self.showFullScreen()
+        else:
+            self._restore_window_geometry("login_geometry", (1120, 700), (980, 620))
+            self.show()
+        self.raise_()
+        self.activateWindow()
 
     def _enter_compact_session_mode(self) -> None:
+        self._tray_icon.hide()
+        self.setWindowFlag(Qt.FramelessWindowHint, False)
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
-        self._restore_window_geometry("compact_geometry", (390, 520), (370, 500))
+        self.showNormal()
+        self._set_full_height_panel_geometry(width=420, minimum_width=390)
         self.show()
 
     def _enter_mini_mode(self) -> None:
+        self._tray_icon.hide()
+        self.setWindowFlag(Qt.FramelessWindowHint, False)
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+        self.showNormal()
         self._restore_window_geometry("mini_geometry", (420, 74), (360, 68))
         self.show()
 
@@ -501,23 +519,31 @@ class MainWindow(QMainWindow):
             )
             self._tray_message_shown = True
 
+    def minimize_to_taskbar(self) -> None:
+        """Minimise le panneau dans la barre des taches Windows."""
+        if not self.current_session:
+            return
+        self.showMinimized()
+
     def show_from_tray(self) -> None:
         """Rouvre l'application depuis la zone de notification."""
         if self.current_session:
             self.show_compact_panel()
             return
-        else:
-            self._enter_login_mode()
-            self.stack.setCurrentWidget(self.login_view)
-        self.showNormal()
+        self.stack.setCurrentWidget(self.login_view)
+        self._enter_login_mode()
         self.raise_()
         self.activateWindow()
 
     def closeEvent(self, event) -> None:  # type: ignore[override]
         """Intercepte la fermeture pendant une session active."""
+        if self.stack.currentWidget() is self.login_view:
+            event.ignore()
+            self._enter_login_mode()
+            return
         if self.current_session:
             event.ignore()
-            self.hide_to_tray()
+            self.minimize_to_taskbar()
             return
         self._save_current_geometry()
         super().closeEvent(event)
@@ -531,17 +557,14 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
 
     def changeEvent(self, event) -> None:  # type: ignore[override]
-        if event.type() == event.Type.WindowStateChange and self.current_session:
-            if self.isMinimized():
-                event.accept()
-                self.hide_to_tray()
-                return
         super().changeEvent(event)
 
     def _create_tray_icon(self) -> QSystemTrayIcon:
         """Cree l'icone de notification et son menu."""
         tray_icon = QSystemTrayIcon(self)
-        tray_icon.setIcon(self.style().standardIcon(QStyle.SP_ComputerIcon))
+        tray_icon.setIcon(
+            self.app_icon if not self.app_icon.isNull() else self.style().standardIcon(QStyle.SP_ComputerIcon)
+        )
         tray_icon.setToolTip("CESOC Client")
 
         menu = QMenu(self)
@@ -572,6 +595,9 @@ class MainWindow(QMainWindow):
 
     def _quit_application(self) -> None:
         """Quitte l'application depuis la zone de notification."""
+        if self.stack.currentWidget() is self.login_view:
+            self._enter_login_mode()
+            return
         if self.current_session:
             if not self.compact_view.confirm_logout():
                 return
@@ -593,13 +619,32 @@ class MainWindow(QMainWindow):
         else:
             self.resize(*default_size)
 
+    def _set_full_height_panel_geometry(self, width: int, minimum_width: int) -> None:
+        screen = self.screen() or QApplication.primaryScreen()
+        if not screen:
+            self.resize(width, 720)
+            return
+
+        available = screen.availableGeometry()
+        panel_width = min(width, available.width())
+        self.setMinimumSize(min(minimum_width, panel_width), available.height())
+        self.setMaximumSize(panel_width, available.height())
+        self.setGeometry(
+            available.right() - panel_width + 1,
+            available.top(),
+            panel_width,
+            available.height(),
+        )
+
     def _save_current_geometry(self) -> None:
         if not hasattr(self, "stack"):
             return
         current_view = self.stack.currentWidget()
+        if current_view is self.login_view and self.settings.client_login_kiosk_enabled:
+            return
         if current_view is self.compact_view:
-            key = "compact_geometry"
-        elif current_view is self.mini_view:
+            return
+        if current_view is self.mini_view:
             key = "mini_geometry"
         else:
             key = "login_geometry"
@@ -609,6 +654,9 @@ class MainWindow(QMainWindow):
 def run() -> int:
     """Lance la fenetre principale."""
     app = QApplication.instance() or QApplication([])
+    app.setApplicationName("CESOC Client")
+    app_icon = get_app_icon()
+    if not app_icon.isNull():
+        app.setWindowIcon(app_icon)
     window = MainWindow()
-    window.show()
     return app.exec()

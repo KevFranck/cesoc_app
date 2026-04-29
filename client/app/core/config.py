@@ -20,6 +20,7 @@ class ClientSettings(BaseSettings):
     client_default_workstation: str = "POSTE-01"
     client_session_limit_minutes: int = 60
     client_session_warning_minutes: str = "15,5,1"
+    client_login_kiosk_enabled: bool = True
     client_browser_home_url: str = "https://www.google.com"
     client_word_executable: str = "winword.exe"
     client_workspace_root: str = str(Path.home() / "Documents" / "CESOC Sessions")
